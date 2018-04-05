@@ -438,18 +438,7 @@ class FeatureSpecNode {
         gen.increaseSpecCount();
     }
 
-    private static Map<String, ModelNode> getParamNames(ModelNode descr) {
-        if (!descr.hasDefined("params")) {
-            return Collections.emptyMap();
-        }
-        final Map<String, ModelNode> params = new HashMap<>();
-        for (ModelNode param : descr.require("params").asList()) {
-            params.put(param.get("name").asString(), param);
-        }
-        return params;
-    }
-
-    private void ensureIdParams(String specName, ModelNode descr, Map<String, ModelNode> descrParams, Set<String> extendedIdParams) throws ProvisioningException {
+    private void ensureIdParams(String specName, ModelNode descr, Map<String, ModelNode> descrParams, Set<String> extendedIdParams, boolean addAsIds) throws ProvisioningException {
         final ModelNode params = descr.get("params");
         ModelNode annotation = null;
         ModelNode addrParams = null;
@@ -493,7 +482,9 @@ class FeatureSpecNode {
 
             final ModelNode idParam = new ModelNode();
             idParam.get("name").set(param);
-            idParam.get("feature-id").set(true);
+            if(addAsIds) {
+                idParam.get("feature-id").set(true);
+            }
             idParam.get("default").set(Constants.PM_UNDEFINED);
             params.add(idParam);
 
@@ -948,7 +939,18 @@ class FeatureSpecNode {
         }
 
         if(generateMerged) {
-            ensureIdParams(mergedName, mergedDescr, getParamNames(mergedDescr), extendedIdParams);
+            boolean hasIdParams = false;
+            Map<String, ModelNode> mergedParams = Collections.emptyMap();
+            if (mergedDescr.hasDefined("params")) {
+                mergedParams = new HashMap<>();
+                for (ModelNode param : mergedDescr.get("params").asList()) {
+                    mergedParams.put(param.get("name").asString(), param);
+                    if(!hasIdParams && param.has("feature-id") && param.get("feature-id").asBoolean()) {
+                        hasIdParams = true;
+                    }
+                }
+            }
+            ensureIdParams(mergedName, mergedDescr, mergedParams, extendedIdParams, hasIdParams);
         }
     }
 

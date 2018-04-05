@@ -473,21 +473,22 @@ public class ResolvedFeatureSpec extends CapabilityProvider {
 
     private List<ResolvedFeatureId> resolveRefId(final ResolvedFeature feature, final FeatureReferenceSpec refSpec, final ResolvedFeatureSpec targetSpec, boolean assertRefMapping)
             throws ProvisioningException {
+
         if(assertRefMapping) {
             assertRefParamMapping(refSpec, targetSpec);
         }
 
         ArrayList<Map<String,Object>> paramsList = null;
         Map<String, Object> params = Collections.emptyMap();
-        boolean child = true;
+        boolean child = feature.hasId() ? false : true; // no id is considered a child to make the list-add not break the branch
         if(refSpec.hasMappedParams()) {
             for (Map.Entry<String, String> mapping : refSpec.getMappedParams().entrySet()) {
                 final String paramName = mapping.getKey();
                 final String refParamName = mapping.getValue();
 
                 final ResolvedFeatureParam resolvedParam = resolvedParamSpecs.get(paramName);
-                if(child && (!resolvedParam.spec.isFeatureId() || !targetSpec.getSpec().getParam(refParamName).isFeatureId())) {
-                    child = false;
+                if(!child && (resolvedParam.spec.isFeatureId() && targetSpec.getSpec().getParam(refParamName).isFeatureId())) {
+                    child = true;
                 }
                 Object paramValue = feature.getResolvedParam(paramName);
                 if (paramValue == null) {
@@ -544,8 +545,8 @@ public class ResolvedFeatureSpec extends CapabilityProvider {
                 final String refParamName = paramName;
 
                 final ResolvedFeatureParam resolvedParam = resolvedParamSpecs.get(paramName);
-                if(child && !resolvedParam.spec.isFeatureId()) {
-                    child = false;
+                if(!child && resolvedParam.spec.isFeatureId()) {
+                    child = true;
                 }
                 Object paramValue = feature.getResolvedParam(paramName);
                 if (paramValue == null) {
