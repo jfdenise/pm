@@ -98,6 +98,7 @@ public abstract class AbstractPluginsCommand extends MapCommand<PmCommandInvocat
                                 builder.type(String.class);
                                 builder.optionType(OptionType.BOOLEAN);
                                 builder.hasValue(false);
+                                noValuesOptions.add(opt.getName());
                             } else {
                                 builder.type(String.class);
                                 builder.optionType(OptionType.NORMAL);
@@ -124,7 +125,7 @@ public abstract class AbstractPluginsCommand extends MapCommand<PmCommandInvocat
     private AeshContext ctx;
     private final Set<String> staticOptions = new HashSet<>();
     private ProcessedCommand<?> cmd;
-
+    private final Set<String> noValuesOptions = new HashSet<>();
     public AbstractPluginsCommand(PmSession pmSession) {
         this.pmSession = pmSession;
     }
@@ -151,7 +152,11 @@ public abstract class AbstractPluginsCommand extends MapCommand<PmCommandInvocat
                 throw new CommandException("Invalid null option");
             }
             if (!staticOptions.contains(m)) {
-                options.put(m, (String) getValue(m));
+                if (noValuesOptions.contains(m)) {
+                    options.put(m, null);
+                } else {
+                    options.put(m, (String) getValue(m));
+                }
             }
         }
         return options;
