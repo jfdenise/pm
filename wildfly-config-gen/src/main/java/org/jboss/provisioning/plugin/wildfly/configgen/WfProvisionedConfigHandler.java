@@ -21,8 +21,6 @@ import static org.jboss.provisioning.Constants.PM_UNDEFINED;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,7 +34,6 @@ import org.jboss.as.cli.parsing.arguments.ArgumentValueCallbackHandler;
 import org.jboss.as.cli.parsing.arguments.ArgumentValueInitialState;
 import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.dmr.ModelNode;
-import org.jboss.dmr.Property;
 import org.jboss.provisioning.ArtifactCoords;
 import org.jboss.provisioning.Constants;
 import org.jboss.provisioning.MessageWriter;
@@ -117,7 +114,7 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
             return "ManagedOp{name=" + name + ", addrParams=" + addrParams + ", opParams=" + opParams + ", op=" + op + '}';
         }
 
-        private void writeOp(ProvisionedFeature feature) throws ProvisioningException {
+        private void executeOp(ProvisionedFeature feature) throws ProvisioningException {
             final ModelNode op = writeOpAddress(feature);
             if (!opParams.isEmpty()) {
                 int i = 0;
@@ -131,17 +128,6 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
                     setOpParam(op, opParams.get(i++), value.trim().isEmpty() ? '\"' + value + '\"' : value);
                 }
             }
-            handleOp(op);
-        }
-
-        private void writeList(ProvisionedFeature feature) throws ProvisioningException {
-            final ModelNode op = writeOpAddress(feature);
-            String value = feature.getConfigParam(opParams.get(0));
-            if (value == null) {
-                throw new ProvisioningDescriptionException(opParams.get(0) + " parameter is null: " + feature);
-            }
-            op.get(WfConstants.NAME).set(opParams.get(1));
-            setOpParam(op, WfConstants.VALUE, value);
             handleOp(op);
         }
 
@@ -175,16 +161,12 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
         void toCommandLine(ProvisionedFeature feature) throws ProvisioningException {
             switch (op) {
                 case OP: {
-                    writeOp(feature);
+                    executeOp(feature);
                     break;
                 }
-                case LIST_ADD: {
-                    writeAttributes(feature);
-                    //writeList(feature);
-                    break;
-                }
+                case LIST_ADD:
                 case WRITE_ATTR: {
-                    writeAttributes(feature);
+                    executeTwoArgOps(feature);
                     break;
                 }
                 default:
@@ -192,7 +174,7 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
             }
         }
 
-        private void writeAttributes(ProvisionedFeature feature) throws ProvisioningDescriptionException, ProvisioningException {
+        private void executeTwoArgOps(ProvisionedFeature feature) throws ProvisioningDescriptionException, ProvisioningException {
             if(complexAttr == null) {
                 int i = 0;
                 while (i < opParams.size()) {
@@ -420,8 +402,7 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
     private NameFilter paramFilter;
 
     private ModelNode composite;
-
-    BufferedWriter writer;
+    private BufferedWriter writer;
 
     public WfProvisionedConfigHandler(ProvisioningRuntime runtime, WfConfigGenerator configGen) throws ProvisioningException {
         this.messageWriter = runtime.getMessageWriter();
@@ -444,12 +425,12 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
             throw new ProvisioningException("Unsupported config model " + config.getModel());
         }
 
-        try {
-            writer = Files.newBufferedWriter(Paths.get(System.getProperty("user.home")).resolve("pm-scripts").resolve(config.getName()));
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+//        try {
+//            writer = Files.newBufferedWriter(Paths.get(System.getProperty("user.home")).resolve("pm-scripts").resolve(config.getName()));
+//        } catch (IOException e) {
+//            // TODO Auto-generated catch block
+//            e.printStackTrace();
+//        }
     }
 
     @Override
@@ -507,34 +488,17 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
     public void startBatch() throws ProvisioningException {
         messageWriter.verbose("      START BATCH");
         composite = Operations.createCompositeOperation();
-        try {
-            writer.write("batch");
-            writer.newLine();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        //logToFile("batch");
     }
 
     @Override
     public void endBatch() throws ProvisioningException {
         messageWriter.verbose("      END BATCH");
-        try {
-            writer.write("run-batch");
-            writer.newLine();
-        } catch (IOException e2) {
-            // TODO Auto-generated catch block
-            e2.printStackTrace();
-        }
+        //logToFile("run-batch");
         try {
             configGen.execute(composite);
         } catch(ProvisioningException e) {
-            try {
-                writer.close();
-            } catch (IOException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
+            //closeLogFile();
             throw e;
         }
         composite = null;
@@ -543,11 +507,25 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
     @Override
     public void done() throws ProvisioningException {
         configGen.stopEmbedded();
+        //closeLogFile();
+    }
+
+    private void closeLogFile() {
         try {
             writer.close();
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
+        }
+    }
+
+    private void logToFile(String line) {
+        try {
+            writer.write(line);
+            writer.newLine();
+        } catch (IOException e2) {
+            // TODO Auto-generated catch block
+            e2.printStackTrace();
         }
     }
 
@@ -565,6 +543,7 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
     }
 
     private void handleOp(ModelNode op) throws ProvisioningException {
+        /*
         try {
             final StringBuilder buf = new StringBuilder();
             final List<Property> addrList = op.get("address").asPropertyList();
@@ -599,18 +578,14 @@ public class WfProvisionedConfigHandler implements ProvisionedConfigHandler {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+        */
         if(composite != null) {
             composite.get(WfConstants.STEPS).add(op);
         } else {
             try {
                 configGen.execute(op);
             } catch(ProvisioningException e) {
-                try {
-                    writer.close();
-                } catch (IOException e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
-                }
+                //closeLogFile();
                 throw e;
             }
         }

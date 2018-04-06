@@ -17,11 +17,6 @@
 
 package org.jboss.provisioning.runtime;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -142,7 +137,7 @@ class DefaultBranchedConfigArranger {
                 orderFeature(feature);
             }
         }
-
+/*
         final Path file = Paths.get(System.getProperty("user.home")).resolve("pm-scripts").resolve(configStack.id.getName() + "-branches.txt");
         try {
             Files.createDirectories(file.getParent());
@@ -151,7 +146,7 @@ class DefaultBranchedConfigArranger {
         try (BufferedWriter writer = Files.newBufferedWriter(file)) {
             int i = 1;
             for (ConfigFeatureBranch branch : featureBranches) {
-                writer.write("Branch " + i++ + " batch=" + branch.isBatch());
+                writer.write("Branch " + i++ + " id=" + branch.id + " batch=" + branch.isBatch());
                 writer.newLine();
                 int j = 1;
                 for (ResolvedFeature feature : branch.getFeatures()) {
@@ -168,6 +163,7 @@ class DefaultBranchedConfigArranger {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        */
     }
 
     private CapabilityProviders getProviders(String cap, boolean add) throws ProvisioningException {
@@ -338,24 +334,13 @@ class DefaultBranchedConfigArranger {
 
     private void ordered(ResolvedFeature feature) throws ProvisioningException {
 
-//        final boolean httpInterface = feature.getSpecId().getName().equals("core-service.management.management-interface.http-interface");
-//        if(httpInterface) {
-//            System.out.println("ORDERED http interface in " + this.configStack.id);
-//        }
-
         ConfigFeatureBranch branch = currentBranch;
         if(circularDeps) {
-//            if(httpInterface) {
-//                System.out.println("   circular deps");
-//            }
             // stay on the current branch created for the circular dep
             if(feature.spec.parentChildrenBranch) {
                 branch.setFkBranch();
             }
         } else if(feature.spec.parentChildrenBranch) {
-//            if(httpInterface) {
-//                System.out.println("   parent children branch");
-//            }
             branch = startNewBranch(feature.spec.isBatchBranch(branchIsBatch));
             branch.setFkBranch();
             onParentChildrenBranch = true;
@@ -363,10 +348,6 @@ class DefaultBranchedConfigArranger {
             boolean branchReset = false;
             if (!feature.branchDeps.isEmpty()) {
                 // System.out.println("branch deps for " + feature.id + " are " + feature.branchDeps);
-//                if(httpInterface) {
-//                    System.out.println("   has branch deps " + feature.branchDeps.size());
-//                }
-
                 final Iterator<Map.Entry<ConfigFeatureBranch, Boolean>> branchDepIter = feature.branchDeps.entrySet().iterator();
                 if (feature.branchDeps.size() == 1) {
                     final Map.Entry<ConfigFeatureBranch, Boolean> next = branchDepIter.next();
@@ -377,9 +358,6 @@ class DefaultBranchedConfigArranger {
                 } else {
                     while (branchDepIter.hasNext()) {
                         final Map.Entry<ConfigFeatureBranch, Boolean> next = branchDepIter.next();
-//                        if(httpInterface) {
-//                            System.out.println("    " + next.getValue() + " " + next.getKey().isFkBranch());
-//                        }
                         if (!next.getValue() || !next.getKey().isFkBranch()) {
                             continue;
                         }
@@ -394,10 +372,6 @@ class DefaultBranchedConfigArranger {
             }
 
             if(!branchReset) {
-//                if(httpInterface) {
-//                    System.out.println("   branch not reset");
-//                }
-
                 if(feature.spec.isSpecBranch(branchPerSpec)) {
                     final SpecFeatures spec = feature.getSpecFeatures();
                     if (!spec.isBranchSet()) {
@@ -568,11 +542,6 @@ class DefaultBranchedConfigArranger {
      * @throws ProvisioningException
      */
     private List<CircularRefInfo> orderReferencedFeature(ResolvedFeature feature, ResolvedFeatureId refId, boolean specRef) throws ProvisioningException {
-//        final boolean httpInt = feature.getSpecId().getName().equals("core-service.management.management-interface.http-interface");
-//        if(httpInt) {
-//            System.out.println("orderReferencedFeature for http interface " + refId);
-//            new Exception().printStackTrace();
-//        }
         if(orderReferencedSpec && specRef && !feature.spec.id.equals(refId.specId)) {
             final SpecFeatures targetSpecFeatures = specFeatures.get(refId.specId);
             if (targetSpecFeatures == null) {
@@ -607,9 +576,6 @@ class DefaultBranchedConfigArranger {
             throw new ProvisioningDescriptionException(Errors.unresolvedFeatureDep(feature, refId));
         }
         final List<CircularRefInfo> circularRefs = orderFeature(dep);
-//        if(httpInt) {
-//            System.out.println("  referenced branch: " + (dep.branch == null ? "none" : dep.branch.id) + " " + refId.isChildRef());
-//        }
         if(dep.branch != null) {
             feature.addBranchDep(dep.branch, refId.isChildRef());
         }
