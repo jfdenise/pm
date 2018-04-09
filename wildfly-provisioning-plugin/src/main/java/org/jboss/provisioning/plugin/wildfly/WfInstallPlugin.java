@@ -99,6 +99,8 @@ public class WfInstallPlugin extends ProvisioningPluginWithOptions implements In
 
     private final PluginOption mavenDistOption = PluginOption.builder("jboss.maven.dist").hasNoValue().build();
 
+    private List<DeletePath> pathsToDelete = Collections.emptyList();
+
     @Override
     protected List<PluginOption> initPluginOptions() {
         return Collections.singletonList(mavenDistOption);
@@ -113,19 +115,8 @@ public class WfInstallPlugin extends ProvisioningPluginWithOptions implements In
         final MessageWriter messageWriter = runtime.getMessageWriter();
         messageWriter.verbose("WildFly provisioning plug-in");
 
-        thinServer = runtime.isOptionSet(mavenDistOption);
-        if(!thinServer) {
-            final String thinServerProp = System.getProperty("wfThinServer");
-            if (thinServerProp != null) {
-                if (thinServerProp.isEmpty()) {
-                    thinServer = true;
-                } else {
-                    thinServer = Boolean.parseBoolean(thinServerProp);
-                }
-            }
-        }
-
         this.runtime = runtime;
+        thinServer = runtime.isOptionSet(mavenDistOption);
 
         Properties provisioningProps = new Properties();
         final Map<String, String> artifactVersions = new HashMap<>();
@@ -193,6 +184,10 @@ public class WfInstallPlugin extends ProvisioningPluginWithOptions implements In
             if(Files.exists(finalizeCli)) {
                 CliScriptRunner.runCliScript(runtime.getStagedDir(), finalizeCli, messageWriter);
             }
+        }
+
+        if(!pathsToDelete.isEmpty()) {
+            deletePaths();
         }
     }
 
@@ -270,7 +265,11 @@ public class WfInstallPlugin extends ProvisioningPluginWithOptions implements In
                     processFeaturePackFilePermissions(pkgTasks, this.runtime.getStagedDir());
                 }
                 if(pkgTasks.hasDeletePaths()) {
-                    deletePaths(pkgTasks, pmWfDir);
+                    if(pathsToDelete.isEmpty()) {
+                        pathsToDelete = new ArrayList<>(pkgTasks.getDeletePaths());
+                    } else {
+                        pathsToDelete.addAll(pkgTasks.getDeletePaths());
+                    }
                 }
             }
         }
@@ -519,10 +518,11 @@ public class WfInstallPlugin extends ProvisioningPluginWithOptions implements In
         }
     }
 
-    private void deletePaths(final WildFlyPackageTasks tasks, final Path pmWfDir) throws ProvisioningException {
-        for(DeletePath deletePath : tasks.getDeletePaths()) {
+    private void deletePaths() throws ProvisioningException {
+        for(DeletePath deletePath : pathsToDelete) {
             final Path path = runtime.getStagedDir().resolve(deletePath.getPath());
             if (!Files.exists(path)) {
+                System.out.println("  does not exist " + path);
 //                throw new ProvisioningException(Errors.pathDoesNotExist(path));
                 continue;
             }
